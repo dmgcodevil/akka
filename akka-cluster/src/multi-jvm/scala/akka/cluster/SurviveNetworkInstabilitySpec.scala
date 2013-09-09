@@ -240,6 +240,9 @@ abstract class SurviveNetworkInstabilitySpec
         }
       }
       runOn(third) {
+        // undelivered system messages in RemoteChild on third should trigger QuarantinedEvent
+        system.eventStream.subscribe(testActor, classOf[QuarantinedEvent])
+
         // after quarantined it will drop the Failed messages to deadLetters
         muteDeadLetters(classOf[Failed])(system)
       }
@@ -252,12 +255,11 @@ abstract class SurviveNetworkInstabilitySpec
       enterBarrier("blackhole-6")
 
       runOn(third) {
-        val p = TestProbe()
         // undelivered system messages in RemoteChild on third should trigger QuarantinedEvent
-        system.eventStream.subscribe(p.ref, classOf[QuarantinedEvent])
         within(10.seconds) {
-          p.expectMsgType[QuarantinedEvent].address must be(address(second))
+          expectMsgType[QuarantinedEvent].address must be(address(second))
         }
+        system.eventStream.unsubscribe(testActor, classOf[QuarantinedEvent])
       }
       enterBarrier("quarantined")
 

@@ -142,8 +142,8 @@ Automatic vs. Manual Downing
 When a member is considered by the failure detector to be unreachable the
 leader is not allowed to perform its duties, such as changing status of
 new joining members to 'Up'. The node must first become reachable again, or the
-status of the unreachable member must be changed to 'Down'. This can be performed
-automatically or manually. By default it must be done manually, using using 
+status of the unreachable member must be changed to 'Down'. Changing status to 'Down'
+can be performed automatically or manually. By default it must be done manually, using 
 :ref:`cluster_jmx_java` or :ref:`cluster_command_line_java`.
 
 It can also be performed programatically with ``Cluster.get(system).down(address)``.

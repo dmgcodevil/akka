@@ -542,7 +542,7 @@ private[cluster] class ClusterCoreDaemon(publisher: ActorRef) extends Actor with
       val newOverview = localGossip.overview copy (reachability = newReachability)
       val newGossip = localGossip copy (overview = newOverview)
       updateLatestGossip(newGossip)
-      log.error("Cluster Node [{}] - Marking node as TERMINATED [{}], due to quarantine",
+      log.warning("Cluster Node [{}] - Marking node as TERMINATED [{}], due to quarantine",
         selfAddress, node.address)
       publish(latestGossip)
       downing(node.address)
@@ -891,7 +891,7 @@ private[cluster] class ClusterCoreDaemon(publisher: ActorRef) extends Actor with
 
           val (exiting, nonExiting) = newlyDetectedUnreachableMembers.partition(_.status == Exiting)
           if (nonExiting.nonEmpty)
-            log.error("Cluster Node [{}] - Marking node(s) as UNREACHABLE [{}]", selfAddress, nonExiting.mkString(", "))
+            log.warning("Cluster Node [{}] - Marking node(s) as UNREACHABLE [{}]", selfAddress, nonExiting.mkString(", "))
           if (exiting.nonEmpty)
             logInfo("Marking exiting node(s) as UNREACHABLE [{}]. This is expected and they will be removed.",
               exiting.mkString(", "))

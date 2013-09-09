@@ -90,10 +90,7 @@ private[cluster] class Reachability private (
   def terminated(observer: UniqueAddress, subject: UniqueAddress): Reachability =
     change(observer, subject, Terminated)
 
-  private def currentVersion(observer: UniqueAddress): Long = versions.get(observer) match {
-    case Some(v) ⇒ v
-    case None    ⇒ 0
-  }
+  private def currentVersion(observer: UniqueAddress): Long = versions.getOrElse(observer, 0)
 
   private def nextVersion(observer: UniqueAddress): Long = currentVersion(observer) + 1
 
@@ -133,10 +130,11 @@ private[cluster] class Reachability private (
 
   def merge(allowed: immutable.Set[UniqueAddress], other: Reachability): Reachability = {
     val recordBuilder = new immutable.VectorBuilder[Record]
-    val versionsBuilder = new scala.collection.mutable.MapBuilder[UniqueAddress, Long, Map[UniqueAddress, Long]](Map.empty)
+    var newVersions = versions
     allowed foreach { observer ⇒
       val observerVersion1 = this.currentVersion(observer)
       val observerVersion2 = other.currentVersion(observer)
+
       (this.table.get(observer), other.table.get(observer)) match {
         case (None, None) ⇒
         case (Some(rows1), Some(rows2)) ⇒
@@ -146,13 +144,12 @@ private[cluster] class Reachability private (
         case (None, Some(rows2)) ⇒
           recordBuilder ++= rows2.collect { case (_, r) if r.version > observerVersion1 ⇒ r }
       }
-      (observerVersion1, observerVersion2) match {
-        case (0, 0)   ⇒
-        case (v1, v2) ⇒ versionsBuilder += ((observer, if (v1 > v2) v1 else v2))
-      }
+
+      if (observerVersion2 > observerVersion1)
+        newVersions += (observer -> observerVersion2)
     }
 
-    new Reachability(recordBuilder.result(), versionsBuilder.result())
+    new Reachability(recordBuilder.result(), newVersions)
   }
 
   private def mergeObserverRows(
