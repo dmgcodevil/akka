@@ -663,7 +663,6 @@ private[cluster] class ClusterCoreDaemon(publisher: ActorRef) extends Actor with
 
     if (!isSingletonCluster) {
       val localGossip = latestGossip
-      val localReachability = localGossip.overview.reachability
 
       val preferredGossipTargets: Vector[UniqueAddress] =
         if (ThreadLocalRandom.current.nextDouble() < GossipDifferentViewProbability) { // If it's time to try to gossip to some nodes with a different view

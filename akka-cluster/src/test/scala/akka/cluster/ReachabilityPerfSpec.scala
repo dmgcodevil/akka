@@ -10,7 +10,7 @@ import akka.actor.Address
 @org.junit.runner.RunWith(classOf[org.scalatest.junit.JUnitRunner])
 class ReachabilityPerfSpec extends WordSpec with ShouldMatchers {
 
-  val nodesSize = sys.props.get("akka.cluster.ReachabilityPerfSpec.clockSize").getOrElse("1000").toInt
+  val nodesSize = sys.props.get("akka.cluster.ReachabilityPerfSpec.nodesSize").getOrElse("1000").toInt
   val iterations = sys.props.get("akka.cluster.ReachabilityPerfSpec.iterations").getOrElse("10000").toInt
 
   val address = Address("akka.tcp", "sys", "a", 2552)
@@ -34,49 +34,97 @@ class ReachabilityPerfSpec extends WordSpec with ShouldMatchers {
     }
   }
 
+  val reachability1 = createReachabilityOfSize(Reachability.empty, nodesSize)
+  val reachability2 = createReachabilityOfSize(reachability1, nodesSize)
+  val reachability3 = addUnreachable(reachability1, nodesSize / 2)
+  val allowed = reachability1.allObservers
+
   def checkThunkFor(r1: Reachability, r2: Reachability, thunk: (Reachability, Reachability) ⇒ Unit, times: Int): Unit = {
     for (i ← 1 to times) {
-      thunk(r1, r2)
+      thunk(Reachability(r1.records, r1.versions), Reachability(r2.records, r2.versions))
     }
   }
 
-  val r1 = createReachabilityOfSize(Reachability.empty, nodesSize)
-  val r2 = createReachabilityOfSize(r1, nodesSize)
-  val r3 = addUnreachable(r1, nodesSize / 2)
-  val allowed = r1.allObservers
+  def checkThunkFor(r1: Reachability, thunk: Reachability ⇒ Unit, times: Int): Unit = {
+    for (i ← 1 to times) {
+      thunk(Reachability(r1.records, r1.versions))
+    }
+  }
 
   def merge(expectedRecords: Int)(r1: Reachability, r2: Reachability): Unit = {
     r1.merge(allowed, r2).records.size should be(expectedRecords)
   }
 
-  def !==(vc1: VectorClock, vc2: VectorClock): Unit = {
-    vc1 == vc2 should be(false)
+  def checkStatus(r1: Reachability): Unit = {
+    val record = r1.records.head
+    r1.status(record.observer, record.subject) should be(record.status)
   }
 
-  s"Reachability merge of size $nodesSize" must {
+  def checkAggregatedStatus(r1: Reachability): Unit = {
+    val record = r1.records.head
+    r1.status(record.subject) should be(record.status)
+  }
+
+  def allUnreachableOrTerminated(r1: Reachability): Unit = {
+    val record = r1.records.head
+    r1.allUnreachableOrTerminated.isEmpty should be(false)
+  }
+
+  def allUnreachable(r1: Reachability): Unit = {
+    val record = r1.records.head
+    r1.allUnreachable.isEmpty should be(false)
+  }
+
+  def recordsFrom(r1: Reachability): Unit = {
+    r1.allObservers.foreach { o ⇒
+      r1.recordsFrom(o) should not be be(null)
+    }
+  }
+
+  s"Reachability of size $nodesSize" must {
 
     s"do a warm up run, $iterations times" in {
-      checkThunkFor(r1, r2, merge(0), iterations)
+      checkThunkFor(reachability1, reachability2, merge(0), iterations)
     }
 
     s"merge with same versions, $iterations times" in {
-      checkThunkFor(r1, r1, merge(0), iterations)
+      checkThunkFor(reachability1, reachability1, merge(0), iterations)
     }
 
     s"merge with all older versions, $iterations times" in {
-      checkThunkFor(r2, r1, merge(0), iterations)
+      checkThunkFor(reachability2, reachability1, merge(0), iterations)
     }
 
     s"merge with all newer versions, $iterations times" in {
-      checkThunkFor(r1, r2, merge(0), iterations)
+      checkThunkFor(reachability1, reachability2, merge(0), iterations)
     }
 
     s"merge with half nodes unreachable, $iterations times" in {
-      checkThunkFor(r1, r3, merge(5 * nodesSize / 2), iterations)
+      checkThunkFor(reachability1, reachability3, merge(5 * nodesSize / 2), iterations)
     }
 
     s"merge with half nodes unreachable opposite $iterations times" in {
-      checkThunkFor(r3, r1, merge(5 * nodesSize / 2), iterations)
+      checkThunkFor(reachability3, reachability1, merge(5 * nodesSize / 2), iterations)
+    }
+
+    s"check status with half nodes unreachable, $iterations times" in {
+      checkThunkFor(reachability3, checkStatus, iterations)
+    }
+
+    s"check aggregated reachability status with half nodes unreachable, $iterations times" in {
+      checkThunkFor(reachability3, checkAggregatedStatus, iterations)
+    }
+
+    s"get allUnreachableOrTerminated with half nodes unreachable, $iterations times" in {
+      checkThunkFor(reachability3, allUnreachableOrTerminated, iterations)
+    }
+
+    s"get allUnreachable with half nodes unreachable, $iterations times" in {
+      checkThunkFor(reachability3, allUnreachable, iterations)
+    }
+
+    s"get recordsFrom with half nodes unreachable, $iterations times" in {
+      checkThunkFor(reachability3, recordsFrom, iterations)
     }
   }
 }

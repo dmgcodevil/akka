@@ -72,7 +72,7 @@ private[cluster] case class Gossip(
       throw new IllegalArgumentException(s"Live members must have status [${Removed}], " +
         s"got [${members.filter(_.status == Removed)}]")
 
-    val inReachabilityButNotMember = overview.reachability.allObservers ++ overview.reachability.allSubjects -- members.map(_.uniqueAddress)
+    val inReachabilityButNotMember = overview.reachability.allObservers -- members.map(_.uniqueAddress)
     if (inReachabilityButNotMember.nonEmpty)
       throw new IllegalArgumentException("Nodes not part of cluster in reachability table, got [%s]"
         format inReachabilityButNotMember.mkString(", "))
